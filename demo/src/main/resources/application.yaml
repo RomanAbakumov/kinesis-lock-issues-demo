@@ -4,22 +4,26 @@ cloud:
       static: us-east-1
     stack:
       auto: false
+    credentials:
+      access-key: test
+      secret-key: test
 
 spring:
-  jpa:
-    hibernate:
-      ddl-auto: none
   cloud:
     function:
       definition: messages
     stream:
+      default:
+        error-handler-definition: errorHandler
       bindings:
+        error:
+          destination: errorHandler
         messages-in-0:
           destination: stream-v0
           group: event-group
           content-type: application/json
           binder: kinesis
-        messages-out-0:
+        messages2-out-0:
           destination: stream-v0
           group: event-group
           content-type: application/json
@@ -34,3 +38,24 @@ spring:
           # The following headers are propagated to the kinesis native message format.
           auto-add-shards: true
           min-shard-count: 16
+    aws:
+      endpoint: http://localhost:4566
+      dynamodb:
+        endpoint: http://localhost:4566        
+      cloudwatch:
+        endpoint: http://localhost:4566
+      credentials:
+        access-key: test
+        secret-key: test
+      parameterstore:
+        endpoint: http://localhost:4566
+      secretsmanager:
+        endpoint: http://localhost:4566
+      sqs:
+        endpoint: http://localhost:4566
+      sns:
+        endpoint: http://localhost:4566
+      ses:
+        endpoint: http://localhost:4566
+      s3:
+        endpoint: http://localhost:4566

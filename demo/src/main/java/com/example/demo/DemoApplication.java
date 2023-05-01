@@ -1,27 +1,29 @@
 package com.example.demo;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClientBuilder;
-import com.amazonaws.services.kinesis.AmazonKinesis;
-import com.amazonaws.services.kinesis.AmazonKinesisAsync;
-import com.amazonaws.services.kinesis.AmazonKinesisAsyncClientBuilder;
-import com.amazonaws.services.kinesis.AmazonKinesisClientBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.annotation.Bean;
+import org.springframework.messaging.support.ErrorMessage;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.kinesis.KinesisAsyncClient;
 
+import java.net.URI;
 import java.util.function.Consumer;
 
 @EnableScheduling
 @SpringBootApplication
 public class DemoApplication {
+	public static final URI ENDPOINT_OVERRIDE = URI.create("http://localhost:4566");
 	@Autowired
 	private StreamBridge streamBridge;
 	int messageId = 0;
@@ -33,7 +35,7 @@ public class DemoApplication {
 	@Scheduled(fixedDelay = 10000L)
 	public void dummyLoad() {
 		String messageBody = "Message: " + messageId++;
-		streamBridge.send("messages-out-0", messageBody);
+		streamBridge.send("messages2-out-0", "kinesis", messageBody);
 		System.out.println("Message sent: " + messageBody);
 	}
 	
@@ -42,68 +44,42 @@ public class DemoApplication {
 		return message -> System.out.println("Received message: " + message);
 	}
 
-
 	@Bean
-	public AWSCredentialsProvider awsCredentialsProvider() {
-		return new AWSCredentialsProvider() {
-			@Override
-			public AWSCredentials getCredentials() {
-				return new AWSCredentials() {
-					@Override
-					public String getAWSAccessKeyId() {
-						return "test";
-					}
-
-					@Override
-					public String getAWSSecretKey() {
-						return "test";
-					}
-				};
-			}
-
-			@Override
-			public void refresh() {
-			}
-		};
+	public AwsCredentialsProvider awsCredentialsProvider() {
+		return () -> AwsBasicCredentials.create("test", "test");
 	}
-
 	@Bean
-	public AmazonKinesisAsync amazonKinesis(AWSCredentialsProvider awsCredentialsProvider) {
-		return AmazonKinesisAsyncClientBuilder
-				.standard()
-				.withCredentials(awsCredentialsProvider)
-				.withEndpointConfiguration(getKinesisEndpointConfiguration())
+	public KinesisAsyncClient amazonKinesis(AwsCredentialsProvider awsCredentialsProvider) {
+		return KinesisAsyncClient.builder()
+				.httpClient(NettyNioAsyncHttpClient.create())
+				.credentialsProvider(awsCredentialsProvider)
+				.endpointOverride(ENDPOINT_OVERRIDE)
+				.region(Region.US_EAST_1)
+				.build();
+	}
+	@Bean
+	public DynamoDbClient dynamoDbClient(AwsCredentialsProvider awsCredentialsProvider) {
+		return DynamoDbClient.builder()
+				.httpClient(UrlConnectionHttpClient.create())
+				.credentialsProvider(awsCredentialsProvider)
+				.endpointOverride(ENDPOINT_OVERRIDE)
+				.region(Region.US_EAST_1)
+				.build();
+	}
+	@Bean
+	public DynamoDbAsyncClient dynamoDbAsyncClient(AwsCredentialsProvider awsCredentialsProvider) {
+		return DynamoDbAsyncClient.builder()
+//				.httpClient(NettyNioAsyncHttpClient.builder()
+//						.connectionTimeout(Duration.ofSeconds(30))
+//						.build())
+				.credentialsProvider(awsCredentialsProvider)
+				.endpointOverride(ENDPOINT_OVERRIDE)
+				.region(Region.US_EAST_1)
 				.build();
 	}
 
 	@Bean
-	public AmazonKinesis amazonKinesisClient(AWSCredentialsProvider awsCredentialsProvider) {
-		return AmazonKinesisClientBuilder
-				.standard()
-				.withCredentials(awsCredentialsProvider)
-				.withEndpointConfiguration(getKinesisEndpointConfiguration())
-				.build();
+	public Consumer<ErrorMessage> errorHandler() {
+		return v -> System.out.println("Can't process message: " + v.getOriginalMessage());
 	}
-
-	@Bean
-	public AmazonDynamoDBAsync amazonDynamoDBAsync(AWSCredentialsProvider awsCredentialsProvider) {
-		return AmazonDynamoDBAsyncClientBuilder.standard()
-				.withCredentials(awsCredentialsProvider)
-				.withEndpointConfiguration(getDynamoDbEndpointConfiguration())
-				.build();
-	}
-
-
-	public AwsClientBuilder.EndpointConfiguration getKinesisEndpointConfiguration() {
-		return new AwsClientBuilder.EndpointConfiguration(
-				"http://localhost:4566",
-				"us-east-1");
-	}
-
-	public AwsClientBuilder.EndpointConfiguration getDynamoDbEndpointConfiguration() {
-		return new AwsClientBuilder.EndpointConfiguration(
-				"http://localhost:4566",
-				"us-east-1");
-	}
-
 }
