@@ -5,7 +5,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.annotation.Bean;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.support.ErrorMessage;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -18,6 +21,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.kinesis.KinesisAsyncClient;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.function.Consumer;
 
 @EnableScheduling
@@ -35,13 +39,14 @@ public class DemoApplication {
 	@Scheduled(fixedDelay = 10000L)
 	public void dummyLoad() {
 		String messageBody = "Message: " + messageId++;
-		streamBridge.send("messages2-out-0", "kinesis", messageBody);
+        Message<String> message = MessageBuilder.createMessage(messageBody, new MessageHeaders(Collections.singletonMap("spring.cloud.function.definition", "asd")));
+        streamBridge.send("messages2-out-0", "kinesis", message);
 		System.out.println("Message sent: " + messageBody);
 	}
 	
 	@Bean
-	public Consumer<String> messages() {
-		return message -> System.out.println("Received message: " + message);
+	public Consumer<Message<String>> messages() {
+		return message -> System.out.println("Received message: " + message.getPayload());
 	}
 
 	@Bean

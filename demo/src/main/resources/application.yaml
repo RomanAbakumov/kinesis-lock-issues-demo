@@ -35,9 +35,10 @@ spring:
             table: checkpoint-table
           locks:
             table: locks-table
-          # The following headers are propagated to the kinesis native message format.
           auto-add-shards: true
           min-shard-count: 16
+          headers: 
+            - spring.cloud.function.definition
     aws:
       endpoint: http://localhost:4566
       dynamodb:
