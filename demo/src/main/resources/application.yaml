@@ -28,9 +28,11 @@ spring:
         binder:
           checkpoint:
             #Set up so the AWS KCL can use dynamodb to manage multiple consumers ... so we dont have to :)
-            table: checkpoint-table
+            table: checkpoint-table1
           locks:
-            table: locks-table
+            table: locks-table1
           # The following headers are propagated to the kinesis native message format.
           auto-add-shards: true
           min-shard-count: 16
+          headers:
+          - spring.cloud.function.definition

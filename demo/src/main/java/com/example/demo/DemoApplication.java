@@ -14,9 +14,13 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.annotation.Bean;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
+import java.util.Collections;
 import java.util.function.Consumer;
 
 @EnableScheduling
@@ -33,13 +37,14 @@ public class DemoApplication {
 	@Scheduled(fixedDelay = 10000L)
 	public void dummyLoad() {
 		String messageBody = "Message: " + messageId++;
-		streamBridge.send("messages-out-0", messageBody);
+		Message<String> message = MessageBuilder.createMessage(messageBody, new MessageHeaders(Collections.singletonMap("spring.cloud.function.definition", "asd")));
+		streamBridge.send("messages-out-0", "kinesis", message);
 		System.out.println("Message sent: " + messageBody);
 	}
 	
 	@Bean
-	public Consumer<String> messages() {
-		return message -> System.out.println("Received message: " + message);
+	public Consumer<Message<String>> messages() {
+		return message -> System.out.println("Received message: " + message.getPayload());
 	}
 
 
